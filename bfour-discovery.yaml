@@ -1,0 +1,77 @@
+esphome:
+  name: bfour-discovery
+  friendly_name: BFour MAC Discovery
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+logger:
+  level: INFO
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "BFour Discovery"
+    password: !secret fallback_password
+
+captive_portal:
+
+web_server:
+  port: 80
+
+api:
+
+ota:
+  - platform: esphome
+
+globals:
+  - id: filter_name
+    type: std::string
+    restore_value: false
+    initial_value: '"BF"'
+  - id: best_rssi
+    type: int
+    initial_value: '-100'
+
+text:
+  - platform: template
+    name: "Device Name Filter"
+    id: name_filter
+    mode: text
+    optimistic: true
+    initial_value: "BF"
+    set_action:
+      - lambda: |-
+          id(filter_name) = x;
+          id(best_rssi) = -100;
+          id(found_mac_sensor).publish_state("searching...");
+
+text_sensor:
+  - platform: template
+    name: "Found MAC"
+    id: found_mac_sensor
+
+esp32_ble_tracker:
+  scan_parameters:
+    active: true
+    interval: 320ms
+    window: 300ms
+  on_ble_advertise:
+    - then:
+        - lambda: |-
+            std::string name = x.get_name();
+            std::string filter = id(filter_name);
+            int rssi = x.get_rssi();
+            if (filter.empty() || name.empty()) return;
+            std::string nl = name, fl = filter;
+            std::transform(nl.begin(), nl.end(), nl.begin(), ::tolower);
+            std::transform(fl.begin(), fl.end(), fl.begin(), ::tolower);
+            if (nl.find(fl) == std::string::npos) return;
+            if (rssi <= id(best_rssi)) return;
+            id(best_rssi) = rssi;
+            id(found_mac_sensor).publish_state(x.address_str());
+            ESP_LOGW("discovery", "MATCH: Name='%s'  MAC=%s  RSSI=%d",
+              name.c_str(), x.address_str().c_str(), rssi);
