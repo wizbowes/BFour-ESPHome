@@ -4,7 +4,14 @@ ESPHome firmware for the BFour BF-60 Bluetooth grill thermometer, bridging it to
 
 ## What it does
 
+This is an ESPHome config to connect to a BFour BF-60 cooking thermometer.  It will probably work with their other devcies with a little bit of tweaking.
+
+NOTE:  This connects to the base unit NOT the individual temperature probes.
+
+Also included is a sperate but quick method to find your devices MAC address if you are stuggling.
+
 - Reads temperatures from both probes in real time
+- Allows the setting of the Probe Alarm Temp for each probe
 - Triggers alarm binary sensors in Home Assistant when a probe reaches its target temperature
 - Controls the device alarm sound on/off
 - Controls the display unit (Celsius/Fahrenheit)
@@ -43,10 +50,11 @@ Once it boots and connects to WiFi, open the web interface at `bfour-discovery.l
 
 You will see two fields:
 
-- **Device Name Filter** — type part of your device's name. The BF-60 typically appears as something containing "BF". The search is case-insensitive.
-- **Found MAC** — once a matching device is seen, its MAC address appears here.
+- **Device Name Filter** — type part of your device's name. The search is case-insensitive. My BF-60 typically appeared as "Grill BT5.0" as something containing "BF". Note: the probes are also advertised on bluewtooth as "BF-40" (in my case).  Do not use these.  Use the base station.
+  
+- **Found MAC** — once a matching device is seen, its MAC address appears here.  
 
-Hold the thermometer close to the ESP32 to get a strong signal. The field updates to the closest matching device, so if multiple devices match your filter, the one physically nearest will win.
+Hold the base unit close to the ESP32 to get a strong signal. The field updates to the closest matching device, so if multiple devices match your filter, the one physically nearest will win.
 
 Copy the MAC address into `secrets.yaml`:
 
