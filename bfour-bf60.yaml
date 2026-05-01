@@ -149,30 +149,31 @@ binary_sensor:
   - platform: template
     name: "Probe Black Alarm"
     id: probe_black_alarm_sensor
-    device_class: heat
 
   - platform: template
     name: "Probe White Alarm"
     id: probe_white_alarm_sensor
-    device_class: heat
 
 number:
   - platform: template
     name: "Probe Black Target"
     id: probe_black_target
     min_value: 1
-    max_value: 99
+    max_value: 210
     step: 1
-    unit_of_measurement: "°C"
     optimistic: true
     restore_value: true
     set_action:
+      - lambda: |-
+          float limit = id(use_celsius).state ? 99.0f : 210.0f;
+          if ((float)x > limit) id(probe_black_target).publish_state(limit);
       - ble_client.ble_write:
           id: bfour
           service_uuid: "FFB0"
           characteristic_uuid: "FFB1"
           value: !lambda |-
-            int val = (int)x;
+            float limit = id(use_celsius).state ? 99.0f : 210.0f;
+            int val = (int)std::min((float)x, limit);
             return {0x55, 0x02, 0x01,
                     (uint8_t)(val >> 8), (uint8_t)(val & 0xFF)};
 
@@ -180,18 +181,21 @@ number:
     name: "Probe White Target"
     id: probe_white_target
     min_value: 1
-    max_value: 99
+    max_value: 210
     step: 1
-    unit_of_measurement: "°C"
     optimistic: true
     restore_value: true
     set_action:
+      - lambda: |-
+          float limit = id(use_celsius).state ? 99.0f : 210.0f;
+          if ((float)x > limit) id(probe_white_target).publish_state(limit);
       - ble_client.ble_write:
           id: bfour
           service_uuid: "FFB0"
           characteristic_uuid: "FFB1"
           value: !lambda |-
-            int val = (int)x;
+            float limit = id(use_celsius).state ? 99.0f : 210.0f;
+            int val = (int)std::min((float)x, limit);
             return {0x55, 0x02, 0x02,
                     (uint8_t)(val >> 8), (uint8_t)(val & 0xFF)};
 
@@ -211,12 +215,40 @@ switch:
           service_uuid: "FFB0"
           characteristic_uuid: "FFB1"
           value: [0x55, 0x01, 0x01]
+      - if:
+          condition:
+            lambda: 'return id(probe_black_target).state > 0.5f;'
+          then:
+            - number.set:
+                id: probe_black_target
+                value: !lambda 'return roundf((id(probe_black_target).state - 32.0f) * 5.0f / 9.0f);'
+      - if:
+          condition:
+            lambda: 'return id(probe_white_target).state > 0.5f;'
+          then:
+            - number.set:
+                id: probe_white_target
+                value: !lambda 'return roundf((id(probe_white_target).state - 32.0f) * 5.0f / 9.0f);'
     turn_off_action:
       - ble_client.ble_write:
           id: bfour
           service_uuid: "FFB0"
           characteristic_uuid: "FFB1"
           value: [0x55, 0x01, 0x00]
+      - if:
+          condition:
+            lambda: 'return id(probe_black_target).state > 0.5f;'
+          then:
+            - number.set:
+                id: probe_black_target
+                value: !lambda 'return roundf(id(probe_black_target).state * 9.0f / 5.0f + 32.0f);'
+      - if:
+          condition:
+            lambda: 'return id(probe_white_target).state > 0.5f;'
+          then:
+            - number.set:
+                id: probe_white_target
+                value: !lambda 'return roundf(id(probe_white_target).state * 9.0f / 5.0f + 32.0f);'
 
   - platform: template
     name: "Alarm Sound"
